@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>出错了 - 考勤管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .box {
+            background: white;
+            padding: 48px;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03);
+            text-align: center;
+            max-width: 420px;
+        }
+        .code {
+            font-size: 64px;
+            font-weight: 700;
+            color: #1e3a5f;
+            line-height: 1;
+            margin-bottom: 16px;
+        }
+        .title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        .msg {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+        a {
+            display: inline-block;
+            padding: 10px 24px;
+            background: #1e3a5f;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        a:hover { background: #2d4a6f; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="code" th:text="${status}">500</div>
+        <div class="title" th:text="${error}">服务器错误</div>
+        <div class="msg">系统遇到了一些问题，请稍后重试或联系管理员。</div>
+        <a href="/app/index.html">返回首页</a>
+    </div>
+</body>
+</html>
