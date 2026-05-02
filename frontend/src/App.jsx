@@ -954,6 +954,9 @@ export default function App() {
                             <Table.Th style={{ fontSize: 12, fontWeight: 600, color: "#475569", backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "10px 14px", width: 110 }}>
                               姓名
                             </Table.Th>
+                            <Table.Th style={{ fontSize: 12, fontWeight: 600, color: "#475569", backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "10px 14px", width: 160 }}>
+                              当前规则
+                            </Table.Th>
                             <Table.Th style={{ fontSize: 12, fontWeight: 600, color: "#475569", backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "10px 14px", width: 140 }}>
                               厂区住宿
                             </Table.Th>
@@ -966,46 +969,64 @@ export default function App() {
                           </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
-                          {[...employees].sort((a, b) => parseInt(a.employeeId) - parseInt(b.employeeId)).map((emp) => (
-                            <Table.Tr key={emp.employeeId}>
-                              <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
-                                {emp.employeeId}
-                              </Table.Td>
-                              <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
-                                {emp.name}
-                              </Table.Td>
-                              <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
-                                <Switch
-                                  size="sm"
-                                  checked={!!emp.dormitoryLunch}
-                                  onChange={(e) =>
-                                    handleUpdateRule(emp.employeeId, e.currentTarget.checked, !!emp.flexibleLunch, !!emp.dinnerDeduct)
-                                  }
-                                  label={emp.dormitoryLunch ? "是" : "否"}
-                                />
-                              </Table.Td>
-                              <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
-                                <Switch
-                                  size="sm"
-                                  checked={!!emp.flexibleLunch}
-                                  onChange={(e) =>
-                                    handleUpdateRule(emp.employeeId, !!emp.dormitoryLunch, e.currentTarget.checked, !!emp.dinnerDeduct)
-                                  }
-                                  label={emp.flexibleLunch ? "是" : "否"}
-                                />
-                              </Table.Td>
-                              <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
-                                <Switch
-                                  size="sm"
-                                  checked={!!emp.dinnerDeduct}
-                                  onChange={(e) =>
-                                    handleUpdateRule(emp.employeeId, !!emp.dormitoryLunch, !!emp.flexibleLunch, e.currentTarget.checked)
-                                  }
-                                  label={emp.dinnerDeduct ? "是" : "否"}
-                                />
-                              </Table.Td>
-                            </Table.Tr>
-                          ))}
+                          {[...employees].sort((a, b) => parseInt(a.employeeId) - parseInt(b.employeeId)).map((emp) => {
+                            const tags = [];
+                            if (emp.dormitoryLunch) tags.push("厂区住宿");
+                            if (emp.flexibleLunch) tags.push("弹性午休");
+                            if (emp.dinnerDeduct) tags.push("晚餐扣除");
+                            const hasRule = tags.length > 0;
+                            return (
+                              <Table.Tr key={emp.employeeId} style={hasRule ? { backgroundColor: "#eff6ff" } : undefined}>
+                                <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
+                                  {emp.employeeId}
+                                </Table.Td>
+                                <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px", fontWeight: hasRule ? 600 : 400 }}>
+                                  {emp.name}
+                                </Table.Td>
+                                <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
+                                  {hasRule ? (
+                                    <Group gap={4}>
+                                      {tags.map((t) => (
+                                        <Badge key={t} size="sm" radius="sm" variant="light" color="blue">{t}</Badge>
+                                      ))}
+                                    </Group>
+                                  ) : (
+                                    <Text size="xs" c="dimmed">—</Text>
+                                  )}
+                                </Table.Td>
+                                <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
+                                  <Switch
+                                    size="sm"
+                                    checked={!!emp.dormitoryLunch}
+                                    onChange={(e) =>
+                                      handleUpdateRule(emp.employeeId, e.currentTarget.checked, !!emp.flexibleLunch, !!emp.dinnerDeduct)
+                                    }
+                                    label={emp.dormitoryLunch ? "是" : "否"}
+                                  />
+                                </Table.Td>
+                                <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
+                                  <Switch
+                                    size="sm"
+                                    checked={!!emp.flexibleLunch}
+                                    onChange={(e) =>
+                                      handleUpdateRule(emp.employeeId, !!emp.dormitoryLunch, e.currentTarget.checked, !!emp.dinnerDeduct)
+                                    }
+                                    label={emp.flexibleLunch ? "是" : "否"}
+                                  />
+                                </Table.Td>
+                                <Table.Td style={{ fontSize: 13, color: "#0f172a", borderBottom: "1px solid #f1f5f9", padding: "10px 14px" }}>
+                                  <Switch
+                                    size="sm"
+                                    checked={!!emp.dinnerDeduct}
+                                    onChange={(e) =>
+                                      handleUpdateRule(emp.employeeId, !!emp.dormitoryLunch, !!emp.flexibleLunch, e.currentTarget.checked)
+                                    }
+                                    label={emp.dinnerDeduct ? "是" : "否"}
+                                  />
+                                </Table.Td>
+                              </Table.Tr>
+                            );
+                          })}
                         </Table.Tbody>
                       </Table>
                     </Box>

@@ -143,12 +143,32 @@ public class AttendanceService {
 
     public EmployeeRule getOrCreateRule(String employeeId, String name) {
         EmployeeRule rule = ruleRepository.findById(employeeId).orElseGet(() -> {
-            EmployeeRule r = new EmployeeRule(employeeId, name, false, false, false);
+            EmployeeRule r = applyDefaultRule(new EmployeeRule(employeeId, name, false, false, false));
             return ruleRepository.save(r);
         });
         if (name != null && !name.isBlank() && !name.equals(rule.getName())) {
             rule.setName(name);
             ruleRepository.save(rule);
+        }
+        return rule;
+    }
+
+    private EmployeeRule applyDefaultRule(EmployeeRule rule) {
+        String name = rule.getName();
+        if (name == null) return rule;
+        // 任杰：厂区住宿 + 晚餐扣除
+        if (name.contains("任杰")) {
+            rule.setDormitoryLunch(true);
+            rule.setDinnerDeduct(true);
+        }
+        // 王清玲：厂区住宿 + 弹性午休
+        if (name.contains("王清玲")) {
+            rule.setDormitoryLunch(true);
+            rule.setFlexibleLunch(true);
+        }
+        // 梁宗茂：厂区住宿
+        if (name.contains("梁宗茂")) {
+            rule.setDormitoryLunch(true);
         }
         return rule;
     }
