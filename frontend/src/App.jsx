@@ -374,7 +374,7 @@ export default function App() {
         pinned: true,
         width: 110,
         valueFormatter: ({ value }) => (
-          <span className="daily-summary-name">{value}</span>
+          <span className="clickable-name">{value}</span>
         ),
       },
     ];
@@ -420,7 +420,15 @@ export default function App() {
         pinned: true,
         width: 90,
       },
-      { header: "姓名", field: "name", pinned: true, width: 110 },
+      {
+        header: "姓名",
+        field: "name",
+        pinned: true,
+        width: 110,
+        valueFormatter: ({ value }) => (
+          <span className="clickable-name">{value}</span>
+        ),
+      },
       { header: "部门", field: "department", width: 130 },
       {
         header: "午休类型",
@@ -751,6 +759,10 @@ export default function App() {
                   "0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03)",
               }}
             >
+              <style>{`
+                .clickable-name { color: #2563eb; }
+                .clickable-name:hover { text-decoration: underline; }
+              `}</style>
               <Tabs value={activeTab} onChange={setActiveTab}>
                 <Tabs.List
                   style={{
@@ -819,10 +831,6 @@ export default function App() {
                       />
                     }
                   >
-                    <style>{`
-                      .daily-summary-name { color: #2563eb; }
-                      .daily-summary-name:hover { text-decoration: underline; }
-                    `}</style>
                     <DataTable
                       data={dailySummaryRows}
                       columns={dailySummaryColumnDefs}
