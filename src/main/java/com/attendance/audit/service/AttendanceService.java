@@ -558,7 +558,7 @@ public class AttendanceService {
         if (dataset.employees().isEmpty()) {
             return new DailySummary(List.of(), List.of());
         }
-        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("MM-dd");
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd");
         List<String> dates = dataset.employees().get(0).days().stream()
                 .map(day -> day.workDate().format(dateFormatter))
                 .toList();
@@ -931,7 +931,7 @@ public class AttendanceService {
             values.add(String.valueOf(seq++));
             values.add(row.name());
             for (Double units : row.dailyWorkUnits()) {
-                values.add(String.valueOf(units));
+                values.add(units == 0.0 ? "" : String.valueOf(units));
             }
             values.add(String.valueOf(row.totalWorkUnits()));
             createStyledDataRow(sheet, rowIndex++, values.toArray(new String[0]), numericCols, rowIndex % 2 == 0, false, workbook);

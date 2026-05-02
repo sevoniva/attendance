@@ -30,13 +30,14 @@ import {
   IconSettings,
   IconBook,
   IconLogout,
+  IconCalendar,
 } from "@tabler/icons-react";
 import DataTable from "./DataTable";
 
 const MAIN_TABS = [
   { value: "summary", label: "人员汇总", icon: IconUsers },
-  { value: "dailySummary", label: "考勤汇总", icon: IconTable },
   { value: "employee", label: "个人明细", icon: IconFileDescription },
+  { value: "dailySummary", label: "考勤汇总", icon: IconCalendar },
   { value: "all", label: "全部明细", icon: IconTable },
   { value: "source", label: "原表数据", icon: IconDatabase },
   { value: "management", label: "人员管理", icon: IconSettings },
@@ -351,7 +352,7 @@ export default function App() {
           _seq: index + 1,
         };
         row.dailyWorkUnits.forEach((units, i) => {
-          flat[`d${i}`] = units;
+          flat[`d${i}`] = units === 0 ? "-" : units;
         });
         return flat;
       })
@@ -367,13 +368,21 @@ export default function App() {
   const dailySummaryColumnDefs = useMemo(() => {
     const cols = [
       { header: "序号", field: "_seq", pinned: true, width: 70, type: "numericColumn" },
-      { header: "姓名", field: "name", pinned: true, width: 110 },
+      {
+        header: "姓名",
+        field: "name",
+        pinned: true,
+        width: 110,
+        valueFormatter: ({ value }) => (
+          <span className="daily-summary-name">{value}</span>
+        ),
+      },
     ];
     dailySummaryData.dates.forEach((date, i) => {
       cols.push({
         header: date,
         field: `d${i}`,
-        width: 85,
+        width: 70,
         type: "numericColumn",
       });
     });
@@ -801,7 +810,7 @@ export default function App() {
                     subtitle="每人每日工时（0.5 的倍数），点击姓名跳转个人明细"
                     right={
                       <TextInput
-                        placeholder="搜索姓名 / 工号"
+                        placeholder="搜索姓名 / 工号 / 工时"
                         value={dailySummarySearch}
                         onChange={(e) => setDailySummarySearch(e.target.value)}
                         style={{ minWidth: 280 }}
@@ -810,6 +819,10 @@ export default function App() {
                       />
                     }
                   >
+                    <style>{`
+                      .daily-summary-name { color: #2563eb; }
+                      .daily-summary-name:hover { text-decoration: underline; }
+                    `}</style>
                     <DataTable
                       data={dailySummaryRows}
                       columns={dailySummaryColumnDefs}
@@ -820,6 +833,14 @@ export default function App() {
                         setActiveTab("employee");
                       }}
                       getRowId={(params) => params.data.employeeId}
+                      getCellStyle={({ data, col }) => {
+                        if (col.field.startsWith("d") && typeof data[col.field] === "number") {
+                          const val = data[col.field];
+                          if (val >= 10) return { backgroundColor: "#dcfce7" };
+                          if (val > 0 && val < 2) return { backgroundColor: "#f3f4f6" };
+                        }
+                        return {};
+                      }}
                       height={620}
                       defaultSortKey="totalWorkUnits"
                       defaultSortDirection="desc"

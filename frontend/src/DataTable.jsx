@@ -10,6 +10,7 @@ export default function DataTable({
   pageSize = 25,
   getRowId,
   getRowStyle,
+  getCellStyle,
   height,
   defaultSortKey = null,
   defaultSortDirection = "asc",
@@ -180,6 +181,9 @@ export default function DataTable({
                     if (col.valueFormatter) {
                       cellValue = col.valueFormatter({ value: cellValue });
                     }
+                    const cellStyle = getCellStyle
+                      ? getCellStyle({ data: row, col })
+                      : {};
                     return (
                       <Table.Td
                         key={col.field}
@@ -192,6 +196,7 @@ export default function DataTable({
                           whiteSpace: col.flex ? "pre-wrap" : "nowrap",
                           wordBreak: col.flex ? "break-word" : "normal",
                           lineHeight: col.flex ? 1.6 : "inherit",
+                          ...cellStyle,
                           ...(col.pinned ? pinnedTd(col) : {}),
                         }}
                       >
