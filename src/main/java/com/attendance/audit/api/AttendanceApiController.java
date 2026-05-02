@@ -69,6 +69,7 @@ public class AttendanceApiController {
     public UploadResponse upload(@RequestParam("file") MultipartFile file) throws IOException {
         Path baseDirectory = Path.of(".").toAbsolutePath().normalize();
         Path stored = attendanceService.storeUpload(baseDirectory, file.getOriginalFilename(), file.getInputStream());
+        attendanceService.syncRulesFromFile(stored);
         return new UploadResponse(stored.getFileName().toString());
     }
 

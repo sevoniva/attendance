@@ -142,10 +142,46 @@ public class AttendanceService {
     }
 
     public EmployeeRule getOrCreateRule(String employeeId, String name) {
-        return ruleRepository.findById(employeeId).orElseGet(() -> {
-            EmployeeRule rule = new EmployeeRule(employeeId, name, false, false, false);
-            return ruleRepository.save(rule);
+        EmployeeRule rule = ruleRepository.findById(employeeId).orElseGet(() -> {
+            EmployeeRule r = new EmployeeRule(employeeId, name, false, false, false);
+            return ruleRepository.save(r);
         });
+        if (name != null && !name.isBlank() && !name.equals(rule.getName())) {
+            rule.setName(name);
+            ruleRepository.save(rule);
+        }
+        return rule;
+    }
+
+    public void syncRulesFromFile(Path sourceFile) {
+        if (!Files.exists(sourceFile)) {
+            return;
+        }
+        try (InputStream inputStream = Files.newInputStream(sourceFile);
+             Workbook workbook = WorkbookFactory.create(inputStream)) {
+            Sheet sheet = workbook.getSheet(DEFAULT_SHEET_NAME);
+            if (sheet == null) {
+                return;
+            }
+            Set<String> activeIds = new java.util.HashSet<>();
+            for (int rowIndex = 4; rowIndex <= sheet.getLastRowNum(); rowIndex += 2) {
+                Row metaRow = sheet.getRow(rowIndex);
+                if (metaRow == null) {
+                    continue;
+                }
+                String employeeId = readCell(metaRow, 2);
+                if (!employeeId.isBlank()) {
+                    activeIds.add(employeeId);
+                }
+            }
+            for (EmployeeRule rule : ruleRepository.findAll()) {
+                if (!activeIds.contains(rule.getEmployeeId())) {
+                    ruleRepository.delete(rule);
+                }
+            }
+        } catch (IOException exception) {
+            throw new IllegalStateException("同步人员规则失败: " + sourceFile.getFileName(), exception);
+        }
     }
 
     public void updateRule(String employeeId, boolean dormitoryLunch, boolean flexibleLunch, boolean dinnerDeduct) {
