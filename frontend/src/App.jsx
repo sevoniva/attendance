@@ -347,18 +347,18 @@ export default function App() {
         const flat = {
           employeeId: row.employeeId,
           name: row.name,
-          totalHours: row.totalHours,
+          totalWorkUnits: row.totalWorkUnits,
           _seq: index + 1,
         };
-        row.dailyHours.forEach((hours, i) => {
-          flat[`d${i}`] = hours;
+        row.dailyWorkUnits.forEach((units, i) => {
+          flat[`d${i}`] = units;
         });
         return flat;
       })
       .filter((row) => {
         if (!dailySummarySearch.trim()) return true;
-        const text = [row.employeeId, row.name, String(row.totalHours)]
-          .concat(row.dailyHours.map(String))
+        const text = [row.employeeId, row.name, String(row.totalWorkUnits)]
+          .concat(row.dailyWorkUnits.map(String))
           .join(" ");
         return text.toLowerCase().includes(dailySummarySearch.trim().toLowerCase());
       });
@@ -378,8 +378,8 @@ export default function App() {
       });
     });
     cols.push({
-      header: "总计（小时）",
-      field: "totalHours",
+      header: "总计（工时）",
+      field: "totalWorkUnits",
       pinned: "right",
       width: 120,
       type: "numericColumn",
@@ -798,7 +798,7 @@ export default function App() {
                 <Tabs.Panel value="dailySummary">
                   <PanelSection
                     title="考勤汇总"
-                    subtitle="每人每日工作时长（小时），点击姓名跳转个人明细"
+                    subtitle="每人每日工时（0.5 的倍数），点击姓名跳转个人明细"
                     right={
                       <TextInput
                         placeholder="搜索姓名 / 工号"

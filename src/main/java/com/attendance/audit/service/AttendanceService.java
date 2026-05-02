@@ -564,11 +564,11 @@ public class AttendanceService {
                 .toList();
         List<DailySummaryRow> rows = dataset.employees().stream()
                 .map(employee -> {
-                    List<Double> dailyHours = employee.days().stream()
-                            .map(day -> roundHours(day.durationMinutes()))
+                    List<Double> dailyWorkUnits = employee.days().stream()
+                            .map(DayRecord::workUnits)
                             .toList();
-                    double totalHours = roundHours(employee.totalMinutes());
-                    return new DailySummaryRow(employee.employeeId(), employee.name(), dailyHours, totalHours);
+                    double totalWorkUnits = employee.totalUnits();
+                    return new DailySummaryRow(employee.employeeId(), employee.name(), dailyWorkUnits, totalWorkUnits);
                 })
                 .sorted(Comparator.comparing(DailySummaryRow::employeeId))
                 .toList();
@@ -903,7 +903,7 @@ public class AttendanceService {
         headerList.add("序号");
         headerList.add("姓名");
         headerList.addAll(dailySummary.dates());
-        headerList.add("总计（小时）");
+        headerList.add("总计（工时）");
         String[] headers = headerList.toArray(new String[0]);
 
         List<Integer> colWidthList = new ArrayList<>();
@@ -930,10 +930,10 @@ public class AttendanceService {
             List<String> values = new ArrayList<>();
             values.add(String.valueOf(seq++));
             values.add(row.name());
-            for (Double hours : row.dailyHours()) {
-                values.add(String.valueOf(hours));
+            for (Double units : row.dailyWorkUnits()) {
+                values.add(String.valueOf(units));
             }
-            values.add(String.valueOf(row.totalHours()));
+            values.add(String.valueOf(row.totalWorkUnits()));
             createStyledDataRow(sheet, rowIndex++, values.toArray(new String[0]), numericCols, rowIndex % 2 == 0, false, workbook);
         }
         for (int i = 0; i < colWidths.length; i++) {
