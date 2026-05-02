@@ -821,6 +821,8 @@ export default function App() {
                       }}
                       getRowId={(params) => params.data.employeeId}
                       height={620}
+                      defaultSortKey="totalWorkUnits"
+                      defaultSortDirection="desc"
                     />
                   </PanelSection>
                 </Tabs.Panel>

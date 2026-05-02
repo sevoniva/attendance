@@ -570,7 +570,7 @@ public class AttendanceService {
                     double totalWorkUnits = employee.totalUnits();
                     return new DailySummaryRow(employee.employeeId(), employee.name(), dailyWorkUnits, totalWorkUnits);
                 })
-                .sorted(Comparator.comparing(DailySummaryRow::employeeId))
+                .sorted(Comparator.comparing(DailySummaryRow::totalWorkUnits).reversed())
                 .toList();
         return new DailySummary(dates, rows);
     }
