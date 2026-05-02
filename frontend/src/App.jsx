@@ -35,6 +35,7 @@ import DataTable from "./DataTable";
 
 const MAIN_TABS = [
   { value: "summary", label: "人员汇总", icon: IconUsers },
+  { value: "dailySummary", label: "考勤汇总", icon: IconTable },
   { value: "employee", label: "个人明细", icon: IconFileDescription },
   { value: "all", label: "全部明细", icon: IconTable },
   { value: "source", label: "原表数据", icon: IconDatabase },
@@ -107,6 +108,7 @@ export default function App() {
   const [summarySearch, setSummarySearch] = useState("");
   const [detailSearch, setDetailSearch] = useState("");
   const [allSearch, setAllSearch] = useState("");
+  const [dailySummarySearch, setDailySummarySearch] = useState("");
   const [detailOnlyExceptions, setDetailOnlyExceptions] = useState(false);
   const [employees, setEmployees] = useState([]);
 
@@ -331,6 +333,59 @@ export default function App() {
           .includes(allSearch.trim().toLowerCase());
       });
   }, [report, allSearch]);
+
+  const dailySummaryData = useMemo(() => {
+    if (!report?.dailySummary) {
+      return { dates: [], rows: [] };
+    }
+    return report.dailySummary;
+  }, [report]);
+
+  const dailySummaryRows = useMemo(() => {
+    return dailySummaryData.rows
+      .map((row, index) => {
+        const flat = {
+          employeeId: row.employeeId,
+          name: row.name,
+          totalHours: row.totalHours,
+          _seq: index + 1,
+        };
+        row.dailyHours.forEach((hours, i) => {
+          flat[`d${i}`] = hours;
+        });
+        return flat;
+      })
+      .filter((row) => {
+        if (!dailySummarySearch.trim()) return true;
+        const text = [row.employeeId, row.name, String(row.totalHours)]
+          .concat(row.dailyHours.map(String))
+          .join(" ");
+        return text.toLowerCase().includes(dailySummarySearch.trim().toLowerCase());
+      });
+  }, [dailySummaryData, dailySummarySearch]);
+
+  const dailySummaryColumnDefs = useMemo(() => {
+    const cols = [
+      { header: "序号", field: "_seq", pinned: true, width: 70, type: "numericColumn" },
+      { header: "姓名", field: "name", pinned: true, width: 110 },
+    ];
+    dailySummaryData.dates.forEach((date, i) => {
+      cols.push({
+        header: date,
+        field: `d${i}`,
+        width: 85,
+        type: "numericColumn",
+      });
+    });
+    cols.push({
+      header: "总计（小时）",
+      field: "totalHours",
+      pinned: "right",
+      width: 120,
+      type: "numericColumn",
+    });
+    return cols;
+  }, [dailySummaryData.dates]);
 
   const currentSourceSheet = useMemo(() => {
     if (!report?.sourceSheets?.length) {
@@ -740,6 +795,36 @@ export default function App() {
                   </PanelSection>
                 </Tabs.Panel>
 
+                <Tabs.Panel value="dailySummary">
+                  <PanelSection
+                    title="考勤汇总"
+                    subtitle="每人每日工作时长（小时），点击姓名跳转个人明细"
+                    right={
+                      <TextInput
+                        placeholder="搜索姓名 / 工号"
+                        value={dailySummarySearch}
+                        onChange={(e) => setDailySummarySearch(e.target.value)}
+                        style={{ minWidth: 280 }}
+                        radius="md"
+                        size="sm"
+                      />
+                    }
+                  >
+                    <DataTable
+                      data={dailySummaryRows}
+                      columns={dailySummaryColumnDefs}
+                      searchValue={dailySummarySearch}
+                      pageSize={25}
+                      onRowClick={(event) => {
+                        setSelectedEmployeeId(event.data.employeeId);
+                        setActiveTab("employee");
+                      }}
+                      getRowId={(params) => params.data.employeeId}
+                      height={620}
+                    />
+                  </PanelSection>
+                </Tabs.Panel>
+
                 <Tabs.Panel value="employee">
                   <PanelSection
                     title={
@@ -1139,7 +1224,7 @@ export default function App() {
                             八、导出 Excel 格式
                           </Text>
                           <Text size="sm" c="dimmed" style={{ lineHeight: 1.7 }}>
-                            导出包含两个 Sheet：&quot;人员汇总&quot;（按总工时降序）和&quot;每日明细&quot;（逐日逐人）。
+                            导出包含三个 Sheet：&quot;人员汇总&quot;（按总工时降序）、&quot;考勤汇总&quot;（每人每日工作时长）和&quot;每日明细&quot;（逐日逐人）。
                             表头冻结，带边框、斑马纹、自动换行。
                           </Text>
                         </Box>

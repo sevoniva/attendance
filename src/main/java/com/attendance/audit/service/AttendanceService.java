@@ -2,6 +2,8 @@ package com.attendance.audit.service;
 
 import com.attendance.audit.api.AttendanceApiController.SourceSheetPreview;
 import com.attendance.audit.model.AttendanceDataset;
+import com.attendance.audit.model.DailySummary;
+import com.attendance.audit.model.DailySummaryRow;
 import com.attendance.audit.model.DayRecord;
 import com.attendance.audit.model.DetailRow;
 import com.attendance.audit.model.EmployeeRecord;
@@ -460,6 +462,7 @@ public class AttendanceService {
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             writeSummarySheet(workbook, buildSummaryRows(dataset));
+            writeDailySummarySheet(workbook, buildDailySummary(dataset));
             writeDetailSheet(workbook, buildDetailRows(dataset));
             workbook.write(outputStream);
             return outputStream.toByteArray();
@@ -549,6 +552,27 @@ public class AttendanceService {
         rows.sort(Comparator.comparing((DetailRow row) -> row.dayRecord().workDate())
                 .thenComparing(DetailRow::employeeId));
         return rows;
+    }
+
+    public DailySummary buildDailySummary(AttendanceDataset dataset) {
+        if (dataset.employees().isEmpty()) {
+            return new DailySummary(List.of(), List.of());
+        }
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("MM-dd");
+        List<String> dates = dataset.employees().get(0).days().stream()
+                .map(day -> day.workDate().format(dateFormatter))
+                .toList();
+        List<DailySummaryRow> rows = dataset.employees().stream()
+                .map(employee -> {
+                    List<Double> dailyHours = employee.days().stream()
+                            .map(day -> roundHours(day.durationMinutes()))
+                            .toList();
+                    double totalHours = roundHours(employee.totalMinutes());
+                    return new DailySummaryRow(employee.employeeId(), employee.name(), dailyHours, totalHours);
+                })
+                .sorted(Comparator.comparing(DailySummaryRow::employeeId))
+                .toList();
+        return new DailySummary(dates, rows);
     }
 
     private List<DayRecord> buildDayRecords(LocalDate startDate, List<String> rawDayCells, boolean dormitoryLunch, boolean flexibleLunch, boolean dinnerDeduct) {
@@ -868,6 +892,54 @@ public class AttendanceService {
             sheet.setColumnWidth(i, colWidths[i] * 256 + 100);
         }
         sheet.createFreezePane(0, 1);
+    }
+
+    private void writeDailySummarySheet(XSSFWorkbook workbook, DailySummary dailySummary) {
+        Sheet sheet = workbook.createSheet(WorkbookUtil.createSafeSheetName("考勤汇总"));
+        if (dailySummary.dates().isEmpty()) {
+            return;
+        }
+        List<String> headerList = new ArrayList<>();
+        headerList.add("序号");
+        headerList.add("姓名");
+        headerList.addAll(dailySummary.dates());
+        headerList.add("总计（小时）");
+        String[] headers = headerList.toArray(new String[0]);
+
+        List<Integer> colWidthList = new ArrayList<>();
+        colWidthList.add(8);
+        colWidthList.add(14);
+        for (int i = 0; i < dailySummary.dates().size(); i++) {
+            colWidthList.add(10);
+        }
+        colWidthList.add(14);
+        int[] colWidths = colWidthList.stream().mapToInt(Integer::intValue).toArray();
+
+        boolean[] numericCols = new boolean[headers.length];
+        numericCols[0] = true;
+        numericCols[1] = false;
+        for (int i = 2; i < headers.length - 1; i++) {
+            numericCols[i] = true;
+        }
+        numericCols[headers.length - 1] = true;
+
+        createStyledHeaderRow(sheet, 0, headers, workbook);
+        int rowIndex = 1;
+        int seq = 1;
+        for (DailySummaryRow row : dailySummary.rows()) {
+            List<String> values = new ArrayList<>();
+            values.add(String.valueOf(seq++));
+            values.add(row.name());
+            for (Double hours : row.dailyHours()) {
+                values.add(String.valueOf(hours));
+            }
+            values.add(String.valueOf(row.totalHours()));
+            createStyledDataRow(sheet, rowIndex++, values.toArray(new String[0]), numericCols, rowIndex % 2 == 0, false, workbook);
+        }
+        for (int i = 0; i < colWidths.length; i++) {
+            sheet.setColumnWidth(i, colWidths[i] * 256 + 100);
+        }
+        sheet.createFreezePane(2, 1);
     }
 
     private void createStyledHeaderRow(Sheet sheet, int rowIndex, String[] headers, XSSFWorkbook workbook) {

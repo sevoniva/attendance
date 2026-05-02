@@ -1,6 +1,7 @@
 package com.attendance.audit.api;
 
 import com.attendance.audit.model.AttendanceDataset;
+import com.attendance.audit.model.DailySummary;
 import com.attendance.audit.model.DetailRow;
 import com.attendance.audit.model.EmployeeRecord;
 import com.attendance.audit.model.EmployeeRule;
@@ -53,6 +54,7 @@ public class AttendanceApiController {
                 .map(employee -> EmployeeOverview.from(employee, attendanceService))
                 .toList();
 
+        DailySummary dailySummary = attendanceService.buildDailySummary(dataset);
         return new ReportResponse(
                 dataset.sourceFile().getFileName().toString(),
                 dataset.startDate().toString(),
@@ -61,7 +63,8 @@ public class AttendanceApiController {
                 attendanceService.buildHeaderMetrics(dataset, summaryRows),
                 summaryRows,
                 employees,
-                detailRows
+                detailRows,
+                dailySummary
         );
     }
 
@@ -113,7 +116,8 @@ public class AttendanceApiController {
             Map<String, Object> metrics,
             List<SummaryRow> summaryRows,
             List<EmployeeOverview> employees,
-            List<DetailRowResponse> detailRows
+            List<DetailRowResponse> detailRows,
+            DailySummary dailySummary
     ) {
     }
 
