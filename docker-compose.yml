@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: attendance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: AttendanceDB#2026
+    ports:
+      - "5433:5433"
+    command: postgres -p 5433
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d attendance -p 5433"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY:-}
+        - HTTPS_PROXY=${HTTPS_PROXY:-}
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5433/attendance
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      APP_AUTH_PASSWORD: AttendanceAdmin#2026
+      DB_PASSWORD: AttendanceDB#2026
+      SERVER_SERVLET_SESSION_COOKIE_SECURE: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
