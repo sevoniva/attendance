@@ -63,4 +63,21 @@ public class AttendanceController {
                 .contentLength(bytes.length)
                 .body(resource);
     }
+
+    @GetMapping("/export.template")
+    public ResponseEntity<ByteArrayResource> exportTemplate(@RequestParam(name = "file", required = false) String fileName) {
+        Path baseDirectory = Path.of(".").toAbsolutePath().normalize();
+        AttendanceDataset dataset = attendanceService.loadDataset(attendanceService.resolveSourceFile(baseDirectory, fileName));
+        byte[] bytes = attendanceService.exportTemplateZip(dataset);
+        ByteArrayResource resource = new ByteArrayResource(bytes);
+        ContentDisposition cd = ContentDisposition.attachment()
+                .filename("考勤表模板.zip", StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, cd.toString())
+                .contentType(new MediaType("application", "zip"))
+                .contentLength(bytes.length)
+                .body(resource);
+    }
 }

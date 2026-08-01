@@ -28,6 +28,7 @@ import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import jakarta.annotation.PostConstruct;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -54,6 +55,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 public class AttendanceService {
@@ -67,6 +70,16 @@ public class AttendanceService {
     private static final String DEFAULT_SHEET_NAME = "考勤记录";
     private static final String RULES_FILE_NAME = "employee_rules.json";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    /**
+     * 模板预设人名 → 考勤机导出人名 的别名映射。
+     * 考勤机导出的人名与模板存在同音字差异，以考勤文件名字为准。
+     */
+    private static final Map<String, String> NAME_ALIASES = Map.of(
+            "闫宇辉", "闫宇挥",
+            "张全奎", "张全魁",
+            "郭万", "万万"
+    );
 
     private final EmployeeRuleRepository ruleRepository;
 
@@ -471,6 +484,122 @@ public class AttendanceService {
         }
     }
 
+    /**
+     * 基于预设的 .xls 模板（机加、木模）填充工时数据，打包成 zip 导出。
+     * 模板原有格式（合并单元格、列宽、行高、样式）全部保留，只往日期格里写工时数值。
+     */
+    public byte[] exportTemplateZip(AttendanceDataset dataset) {
+        Map<String, EmployeeRecord> byName = new LinkedHashMap<>();
+        for (EmployeeRecord employee : dataset.employees()) {
+            byName.put(employee.name(), employee);
+        }
+        String monthLabel = dataset.startDate().getYear() + "年"
+                + dataset.startDate().getMonthValue() + "月份";
+
+        try (ByteArrayOutputStream zipOut = new ByteArrayOutputStream();
+             ZipOutputStream zip = new ZipOutputStream(zipOut)) {
+            byte[] jijia = fillTemplate("excel-templates/机加考勤表.xls", "机加",
+                    byName, monthLabel, false);
+            zip.putNextEntry(new ZipEntry("机加考勤表.xls"));
+            zip.write(jijia);
+            zip.closeEntry();
+
+            byte[] mumu = fillTemplate("excel-templates/木模车间考勤表.xls", "木模",
+                    byName, monthLabel, true);
+            zip.putNextEntry(new ZipEntry("木模车间考勤表.xls"));
+            zip.write(mumu);
+            zip.closeEntry();
+
+            byte[] report = exportExcel(dataset);
+            zip.putNextEntry(new ZipEntry("考勤明细报表.xlsx"));
+            zip.write(report);
+            zip.closeEntry();
+
+            zip.finish();
+            return zipOut.toByteArray();
+        } catch (IOException exception) {
+            throw new IllegalStateException("导出考勤表模板失败", exception);
+        }
+    }
+
+    /**
+     * 读取 classpath 上的模板，填充工时后返回 .xls 字节数组。
+     *
+     * @param twoRowsPerPerson 木模模板每人占上午/下午两行，机加每人一行
+     */
+    private byte[] fillTemplate(String classpathLocation, String sheetName,
+                                Map<String, EmployeeRecord> byName, String monthLabel,
+                                boolean twoRowsPerPerson) {
+        try (InputStream in = new ClassPathResource(classpathLocation).getInputStream();
+             Workbook workbook = WorkbookFactory.create(in);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.getSheet(sheetName);
+
+            // 1. 更新标题里的年月
+            Row titleRow = sheet.getRow(0);
+            if (titleRow != null) {
+                Cell titleCell = titleRow.getCell(0);
+                if (titleCell != null) {
+                    String title = readCell(titleRow, 0);
+                    titleCell.setCellValue(title.replaceAll("\\d{4}年\\d{1,2}月份", monthLabel));
+                }
+            }
+
+            // 2. 遍历人员行填充工时
+            // 机加：col0=姓名，col1~31=1~31号，col32=合计，每人1行
+            // 木模：col0=姓名，col1=上午/下午，col2~32=1~31号，col33=合计，每人2行
+            int dateColOffset = twoRowsPerPerson ? 1 : 0;
+            int totalCol = twoRowsPerPerson ? 33 : 32;
+            int rowStep = twoRowsPerPerson ? 2 : 1;
+            for (int r = 2; r <= sheet.getLastRowNum(); r += rowStep) {
+                Row nameRow = sheet.getRow(r);
+                String name = readCell(nameRow, 0);
+                if (name.isEmpty()) {
+                    continue;
+                }
+                // 模板人名与考勤机导出存在同音字差异时，按别名映射查找，以考勤文件名字为准
+                String lookupName = NAME_ALIASES.getOrDefault(name, name);
+                EmployeeRecord employee = byName.get(lookupName);
+                if (employee == null) {
+                    continue;
+                }
+                // 用了别名则更新模板人名为考勤文件的正确名字
+                if (!lookupName.equals(name) && nameRow.getCell(0) != null) {
+                    nameRow.getCell(0).setCellValue(employee.name());
+                }
+                Row afternoonRow = twoRowsPerPerson ? sheet.getRow(r + 1) : null;
+                for (DayRecord day : employee.days()) {
+                    int col = day.day() + dateColOffset;
+                    if (twoRowsPerPerson) {
+                        setNumericCell(nameRow, col, day.morningUnits());
+                        // 下午格 = 全天工时 - 上午格，保证 上午+下午 = 全天 = 合计 = 页面值
+                        setNumericCell(afternoonRow, col, day.workUnits() - day.morningUnits());
+                    } else {
+                        setNumericCell(nameRow, col, day.workUnits());
+                    }
+                }
+                // 合计列 = 各天全天工时之和 = totalUnits，与页面显示一致
+                setNumericCell(nameRow, totalCol, employee.totalUnits());
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException exception) {
+            throw new IllegalStateException("填充考勤表模板失败: " + classpathLocation, exception);
+        }
+    }
+
+    /** 仅当值非 0 时写入已有单元格，保留模板原样式；0 值跳过保持空格。 */
+    private void setNumericCell(Row row, int col, double value) {
+        if (row == null || value == 0.0) {
+            return;
+        }
+        Cell cell = row.getCell(col);
+        if (cell != null) {
+            cell.setCellValue(value);
+        }
+    }
+
     public List<SourceSheetPreview> buildSourceSheetPreviews(Path sourceFile) {
         try (InputStream inputStream = Files.newInputStream(sourceFile);
              Workbook workbook = WorkbookFactory.create(inputStream)) {
@@ -605,8 +734,8 @@ public class AttendanceService {
                     durationResult.calculationBasis(),
                     durationResult.morningMinutes(),
                     durationResult.afternoonMinutes(),
-                    0.0,
-                    0.0
+                    minutesToUnits(durationResult.morningMinutes()),
+                    minutesToUnits(durationResult.afternoonMinutes())
             ));
         }
         return records;

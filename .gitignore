@@ -31,7 +31,10 @@ __pycache__/
 
 # AI assistant config
 .claude/
+.zcode/
 
 # Local environment overrides
 .env
 application-local.properties
+docker-compose.override.yml
+maven-settings.xml

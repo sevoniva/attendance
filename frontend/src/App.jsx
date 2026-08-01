@@ -653,6 +653,19 @@ export default function App() {
               导出 CSV
             </Button>
             <Button
+              component="a"
+              variant="default"
+              leftSection={<IconDownload size={16} />}
+              href={
+                selectedFile
+                  ? `/export.template?file=${encodeURIComponent(selectedFile)}`
+                  : "#"
+              }
+              radius="md"
+            >
+              导出考勤表
+            </Button>
+            <Button
               variant="default"
               color="red"
               leftSection={<IconTrash size={16} />}
