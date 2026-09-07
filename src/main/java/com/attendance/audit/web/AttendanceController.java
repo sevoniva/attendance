@@ -64,6 +64,7 @@ public class AttendanceController {
                 .body(resource);
     }
 
+    /** 导出考勤表模板（zip）：机加.xls + 木模.xls + 考勤明细报表.xlsx，基于预设模板填充工时 */
     @GetMapping("/export.template")
     public ResponseEntity<ByteArrayResource> exportTemplate(@RequestParam(name = "file", required = false) String fileName) {
         Path baseDirectory = Path.of(".").toAbsolutePath().normalize();

@@ -846,6 +846,15 @@ public class AttendanceService {
         return overnightMerged;
     }
 
+    /**
+     * 计算一天的工时。流程：
+     * 1. 取最早到最晚打卡之间的原始时长（8 点前打卡按 08:00 起算）
+     * 2. 扣午休（普通扣 12:00-13:00 共 60 分；厂区住宿/弹性午休扣 12:00-14:00 共 120 分；
+     *    弹性午休有午间打卡时按最早打卡提前结束午休）
+     * 3. 扣晚餐（开关打开且打卡 ≥4 次时扣 60 分）
+     * 4. 按半天取整：工时 = floor(分钟/30)×0.5，余数 ≥20 补 0.5
+     * 5. 同时算出上午/下午时段分钟数（午休前/后），供模板导出使用
+     */
     private DurationResult calculateDuration(List<LocalDateTime> punches, boolean dormitoryLunch, boolean flexibleLunch, boolean dinnerDeduct, boolean overnightMerged) {
         boolean twoHourLunch = dormitoryLunch || flexibleLunch;
         String defaultLabel;
