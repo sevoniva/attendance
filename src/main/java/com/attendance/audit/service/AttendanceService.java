@@ -551,6 +551,7 @@ public class AttendanceService {
             int dateColOffset = twoRowsPerPerson ? 1 : 0;
             int totalCol = twoRowsPerPerson ? 33 : 32;
             int rowStep = twoRowsPerPerson ? 2 : 1;
+            List<EmployeeRecord> matchedEmployees = new ArrayList<>();
             for (int r = 2; r <= sheet.getLastRowNum(); r += rowStep) {
                 Row nameRow = sheet.getRow(r);
                 String name = readCell(nameRow, 0);
@@ -563,6 +564,7 @@ public class AttendanceService {
                 if (employee == null) {
                     continue;
                 }
+                matchedEmployees.add(employee);
                 // 用了别名则更新模板人名为考勤文件的正确名字
                 if (!lookupName.equals(name) && nameRow.getCell(0) != null) {
                     nameRow.getCell(0).setCellValue(employee.name());
@@ -582,6 +584,9 @@ public class AttendanceService {
                 setNumericCell(nameRow, totalCol, employee.totalUnits());
             }
 
+            // 3. 新增「计算明细」sheet，列出每人每天的计算依据供核对
+            writeCalculationDetailSheet(workbook, matchedEmployees);
+
             workbook.write(out);
             return out.toByteArray();
         } catch (IOException exception) {
@@ -598,6 +603,56 @@ public class AttendanceService {
         if (cell != null) {
             cell.setCellValue(value);
         }
+    }
+
+    /**
+     * 在模板 workbook 里新增「计算明细」sheet，列出每人每天的计算依据：
+     * 上班/下班时间、打卡次数、午休扣除、全天工时、上午/下午工时、计算依据全文。
+     * 不影响原模板 sheet 的格式。
+     */
+    private void writeCalculationDetailSheet(Workbook workbook, List<EmployeeRecord> employees) {
+        Sheet sheet = workbook.createSheet("计算明细");
+        String[] headers = { "姓名", "日期", "上班", "下班", "次数", "整理后打卡",
+                "午休规则", "午休扣除(分)", "晚餐扣除(分)", "全天分钟", "全天工时",
+                "上午工时", "下午工时", "计算依据" };
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < headers.length; i++) {
+            headerRow.createCell(i).setCellValue(headers[i]);
+        }
+        int rowIndex = 1;
+        for (EmployeeRecord employee : employees) {
+            for (DayRecord day : employee.days()) {
+                if (day.punches().isEmpty()) {
+                    continue;
+                }
+                Row row = sheet.createRow(rowIndex++);
+                row.createCell(0).setCellValue(employee.name());
+                row.createCell(1).setCellValue(day.workDate().toString());
+                row.createCell(2).setCellValue(day.punches().getFirst().toLocalTime().format(TIME_FORMATTER));
+                LocalDateTime last = day.punches().getLast();
+                String endTime = last.toLocalTime().format(TIME_FORMATTER);
+                if (last.toLocalDate().isAfter(day.workDate())) {
+                    endTime = "次日" + endTime;
+                }
+                row.createCell(3).setCellValue(endTime);
+                row.createCell(4).setCellValue(day.punches().size());
+                row.createCell(5).setCellValue(formatPunches(day.punches()));
+                row.createCell(6).setCellValue(day.lunchRuleLabel());
+                row.createCell(7).setCellValue(day.lunchDeductionMinutes());
+                row.createCell(8).setCellValue(day.dinnerDeductionMinutes());
+                row.createCell(9).setCellValue(day.durationMinutes());
+                row.createCell(10).setCellValue(day.workUnits());
+                row.createCell(11).setCellValue(day.morningUnits());
+                row.createCell(12).setCellValue(day.workUnits() - day.morningUnits());
+                row.createCell(13).setCellValue(day.calculationBasis());
+            }
+        }
+        // 列宽
+        int[] widths = { 10, 12, 8, 8, 6, 24, 22, 10, 10, 8, 8, 8, 8, 60 };
+        for (int i = 0; i < widths.length; i++) {
+            sheet.setColumnWidth(i, widths[i] * 256);
+        }
+        sheet.createFreezePane(2, 1);
     }
 
     public List<SourceSheetPreview> buildSourceSheetPreviews(Path sourceFile) {
@@ -819,6 +874,11 @@ public class AttendanceService {
         if (!end.isAfter(start)) {
             end = end.plusDays(1);
         }
+        // 8点前打卡的按8点开始算工时
+        LocalDateTime workStart = start.toLocalDate().atTime(8, 0);
+        if (start.isBefore(workStart)) {
+            start = workStart;
+        }
 
         int lunchDeductionMinutes;
         String lunchRuleLabel;
@@ -930,9 +990,11 @@ public class AttendanceService {
     }
 
     private double minutesToUnits(int minutes) {
-        int wholeHours = minutes / 60;
-        int remainder = minutes % 60;
-        return wholeHours + (remainder / 20) * 0.5;
+        // 以 30 分钟为单位：每满 30 分钟算 0.5 工时。
+        // 人性化规则：剩余不足 30 分钟但满 20 分钟的，也补 0.5（如 9 小时 20 分钟记 9.5）。
+        int halfHours = minutes / 30;
+        int remainder = minutes % 30;
+        return halfHours * 0.5 + (remainder >= 20 ? 0.5 : 0);
     }
 
     private double roundHours(int minutes) {
